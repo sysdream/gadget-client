@@ -29,7 +29,7 @@ class Map(Object):
     """
     Remote map object
 
-    Provides convenient Python-like dictionary access
+    Provides convenient Python-like dictionary access.
     """
 
 
@@ -38,5 +38,5 @@ class Iterable(Object):
     """
     Remote iterable object
 
-    Provides conenient Python-like list access and enumeration
+    Provides conenient Python-like list access and enumeration.
     """

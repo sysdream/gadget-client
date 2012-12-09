@@ -280,3 +280,33 @@ class Service(object):
             return self.get_field(self.protocol.pushInt(var), [])
         elif type(var) is bool:
             return self.get_field(self.protocol.pushBool(var), [])
+
+
+class Application(object):
+    """
+    Top abstraction level class for remote application access
+
+    Assume that the remote application name is already known and hides every
+    implementation detail.
+    """
+
+    def __init__(self, remote, app):
+        """
+        Connect to the remote application and initialize the local object
+
+        Keyword arguments:
+        remote -- remote address and port
+        app    -- remote application name
+        """
+        assert app in list_applications(remote), \
+            RuntimeError("Cannot find the application")
+        self.protocol = Protocol(remote, app)
+        self.service = Service(self.protocol)
+
+    def get_entry_points(self):
+        """
+        List the application entry points
+        """
+        return self.service.get_entry_points()
+
+    entry_points = property(get_entry_points)

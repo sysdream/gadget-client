@@ -62,16 +62,14 @@ class Registry(object):
     mappings = dict()
 
     @classmethod
-    def register(cls, classname):
+    def register(cls, clazz, classname):
         """
-        Register a new mapping, class decorator
+        Register a new mapping
 
         Keyword arguments:
         classname -- the mapped Java class name
         """
-        def decorator(clazz):
-            cls.mappings[classname] = clazz
-        return decorator
+        cls.mappings[classname] = clazz
 
     @classmethod
     def resolve(cls, classnames):
@@ -94,7 +92,7 @@ class Registry(object):
         raise ValueError("No available mapping")
 
 
-def maptype(clazz, *mappings):
+def maptype(*classnames):
     """
     Type mapping decorator
 
@@ -115,10 +113,12 @@ def maptype(clazz, *mappings):
     clazz    - the mapped Python type
     mappings - the corresponding Java types
     """
-    for mapping in mappings:
-        Registry.register(clazz, mapping)
-    # do not alter the class
-    return clazz
+    def decorator(clazz):
+        for classname in classnames:
+            Registry.register(clazz, classname)
+        # do not alter the class
+        return clazz
+    return decorator
 
 
 @maptype('java.lang.Object')
@@ -143,10 +143,7 @@ class Object(object):
     may be public, protected, private, static, etc. they are stored as strings)
     """
 
-    # global entry point cache
-    _entry_points = []
-
-    def __init__(self, service, entry_point, path=[]):
+    def __init__(self, service, types, entry_point, path=[]):
         """
         Initialize the object
 
@@ -154,15 +151,22 @@ class Object(object):
 
         Keyword arguments:
         service     -- the inspection service
+        types       -- list of remote types of the current object
         entry_point -- the entry point number on the application side
         path        -- the path on the application side
         """
         self._service = service
         self._entry_point = entry_point
-        self._modifiers = modifiers
+        self._types = types
         self._path = path
         self._field_cache = None
         self._method_cache = None
+
+    def __repr__(self):
+        """
+        Pretty print
+        """
+        return "<%s object>" % self._types[0]
 
     def __getattr__(self, name):
         """
@@ -186,10 +190,15 @@ class Object(object):
         method = self._getmethod(name)
         if method is not None:
             return method
-        clazz = self._getclass(name)
-        if clazz is not None:
-            return clazz
         raise AttributeError("Unknown attribute %s" % name)
+
+    def _refresh(self, name):
+        """
+        Refresh the current field
+
+        May be useful to primitive types wrappers for grabbing the field value
+        for instance.
+        """
 
     def _getfield(self, name):
         """
@@ -207,11 +216,14 @@ class Object(object):
                 self._entry_point, self._path)
         # if the attribute is a field
         if name in self._field_cache:
-            # if the specific field needs to be refreshed
             modifiers, field = self._field_cache[name]
+            # if the specific field needs to be created
             if type(field) is int:
                 field = self._service.get_field(
-                    self._entry_point, self._path, field)
+                    self._entry_point, self._path + [field])
+                self._field_cache[name] = (modifiers, field)
+            # otherwise just refresh it
+            field._refresh()
             return field
 
     def _getmethod(self, name):
@@ -224,7 +236,7 @@ class Object(object):
         # if the method list needs to be refreshed
         if self._method_cache == None:
             self._method_cache = self._service.get_methods(
-                self._entry_point, self._peth)
+                self._entry_point, self._path)
         # if the attribute is a method
         if name in self._method_cache:
             # virtual method is simply a Method object with a string method
@@ -238,7 +250,7 @@ class Object(object):
         If the object is already an entry point, just return the entry point
         value. Otherwise, it is necessary to first push the object.
         """
-        if len(self._path) > 0
+        if len(self._path) > 0:
             self._entry_point = self._service.push(
                 self._entry_point, self._path)
             self._path = []
@@ -273,7 +285,7 @@ class Method(object):
     method invocation.
     """
 
-    def __init__(self, service, entry_point, path, method):
+    def __init__(self, service, entry_point, path, method, signature = ""):
         """
         Initialize the method object
 
@@ -292,6 +304,7 @@ class Method(object):
         self._entry_point = entry_point
         self._path = path
         self._method = method
+        self._signature = signature
 
     def __call__(self, *args):
         """
@@ -302,8 +315,9 @@ class Method(object):
         """
         # list of actual sent arguments
         objects = [arg if isinstance(arg, Object)
-                   else self._service.to_object(arg)]
-        arguments = [arg._getentrypoint for arg in objects]
+                   else self._service.to_object(arg)
+                   for arg in args]
+        arguments = [arg._getentrypoint() for arg in objects]
         # if the method is a virtual method
         if type(self._method is str):
             entry_point = self._service.virtual(
@@ -312,4 +326,12 @@ class Method(object):
             entry_point = self._service.invoke(
                 self._entry_point, self._path, self._method, arguments)
         # return the result wrapped in an Object instance
-        return Object(self._service, entry_point)
+        return self._service.get_field(entry_point, [])
+
+    def __repr__(self):
+        """
+        Pretty print
+        """
+        return "<%s method %s>" % (
+            "virtual" if type(self._method) is str else "concrete",
+            self._method if type(self._method) is str else self._signature)

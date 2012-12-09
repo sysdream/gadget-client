@@ -23,6 +23,18 @@ class String(Object):
     Remote string object
     """
 
+    def __repr__(self):
+        """
+        Pretty print
+        """
+        return "'%s'" % self._value
+
+    def _refresh(self):
+        """
+        Grab the string value
+        """
+        self._value = self._service.get_value(self._entry_point, self._path)
+
 
 @maptype('java.util.Map')
 class Map(Object):

@@ -19,6 +19,13 @@ Gadget protocol messages are defined as follow.
  +-------------+-------------------------- - - - -----------------+
 """
 
+import socket
+import json
+import struct
+
+from mapping import Registry, Method
+
+
 class Protocol(object):
     """
     Baremetal protocol implementation
@@ -34,9 +41,23 @@ class Protocol(object):
         Keyword arguments:
         remote -- address and port of the remote end point
         app    -- inspected application package
-        """
 
-    def _call(self, name, arguments):
+        Exceptions:
+        IOError -- connection to the remote end point failed
+        """
+        self._app = app
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket.connect(remote)
+        self.connectApp()
+
+    def __del__(self):
+        """
+        Disconnect the protocol instance
+        """
+        self._socket.close()
+
+    @staticmethod
+    def _call(socket, app, name, arguments):
         """
         Proxify a call to the remote end point and parse the result
 
@@ -44,18 +65,57 @@ class Protocol(object):
         name      -- name of the remote method
         arguments -- list of arguments for the method
         """
+        # send the request
+        request = json.dumps([app, name] + list(arguments))
+        message = struct.pack('>I', len(request)) + request
+        socket.send(message)
+        # wait for the answer
+        length = socket.recv(4)
+        assert len(length) == 4, IOError("Connection error while receiving")
+        length = struct.unpack('>I', length)[0]
+        # receive as many bytes from the tcp socket
+        result = ''
+        while len(result) < length:
+            recv = socket.recv(length - len(result))
+            if len(recv) == 0:
+                break
+            result += recv
+        # always check the message length
+        assert len(result) == length, IOError("Wrong message length")
+        # decode the answer
+        response = json.loads(result)
+        if not response['success']:
+            raise RuntimeError("Remote error, %s" % response['response'])
+        return None if 'response' not in response else response['response']
 
     def __getattr__(self, name):
         """
         Proxify every call to the remote end point using the _call method
         """
-        def proxy(arguments):
+        def proxy(*arguments):
             """
             Proxy function
             """
-            return self._call(name, arguments)
+            return self._call(self._socket, self._app, name, arguments)
         # return the proxy
         return proxy
+
+
+def list_applications(remote):
+    """
+    List applications that may be inspected on the given remote end point
+
+    Keyword arguments:
+    remote -- remote end point address and port
+
+    Returns:
+    the list of package names for Protocol instance initialization
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(remote)
+    result = Protocol._call(sock, '', 'listApps', [])
+    sock.close()
+    return result
 
 
 class Service(object):
@@ -69,8 +129,32 @@ class Service(object):
     def __init__(self, protocol):
         """
         Initialize the service
+
+        Keyword arguments:
+        protocol -- a protocol instance
         """
         self.protocol = protocol
+        self.entry_points = None
+
+    def get_entry_points(self):
+        """
+        List entry points as objects
+
+        Returns:
+        a list of entry point objects
+        """
+        # refresh the entry point cache if necessary
+        if self.entry_points is None:
+            self.refresh_entry_points()
+        return self.entry_points
+
+    def refresh_entry_points(self):
+        """
+        Refresh the service entry point cache
+        """
+        self.entry_points = [
+            self.get_field(index, [])
+            for index in range(len(self.protocol.getEntryPoints()))]
 
     def get_fields(self, entry_point, path):
         """
@@ -84,19 +168,45 @@ class Service(object):
         a dictionary with field names as keys and tuples of both modifiers
         and field identifier as value
         """
+        fields = self.protocol.getFields(entry_point, path)
+        result = {}
+        for index, field in enumerate(fields):
+            name, signature = field.split(':')
+            # remove the main type from the modifiers
+            modifiers = signature.split(' ')[:-1]
+            # populate the result
+            result[name] = (modifiers, index)
+        return result
 
-    def get_field(self, entry_point, path, field):
+    def get_field(self, entry_point, path):
         """
         Get a specific field wrapped into an mapped class instance
 
         Keyword arguments:
         entry_point -- the object entry point
         path        -- path from the entry point to the object
-        field       -- the field identifier as returned by get_fields
 
         Returns:
         a mapped class instance for the object
         """
+        if entry_point < 0:
+            return None
+        types = self.protocol.getTypes(entry_point, path)
+        if len(types) == 0:
+            return None
+        return Registry.resolve(types)(self, types, entry_point, path)
+
+    def get_value(self, entry_point, path):
+        """
+        Get the remote value of a specific field
+
+        Mostly useful for primitive types.
+
+        Keyword arguments:
+        entry_point -- the object entry point
+        path        -- path from the entry point to the object
+        """
+        return self.protocol.getValue(entry_point, path)
 
     def get_methods(self, entry_point, path):
         """
@@ -110,6 +220,36 @@ class Service(object):
         a dictionary with method names as keys and a list of tuples
         of both modifiers and concrete method object as value
         """
+        methods = self.protocol.getMethods(entry_point, path)
+        result = {}
+        for index, method in enumerate(methods):
+            name, signature = method.split(':')
+            # remote the return type and arguments from the modifiers
+            modifiers = signature.split(' ')[:-1]
+            # populate the result
+            if not name in result:
+                result[name] = []
+            result[name].append(
+                (modifiers, Method(self, entry_point, path, index, signature)))
+        return result
+
+    def virtual(self, entry_point, path, method, arguments):
+        """
+        Perform a virtual method call
+
+        Virtual method call involves virtual method resolution on the Java side.
+        The method name passed must be a string.
+
+        Keyword arguments:
+        entry_point -- the object entry point
+        path        -- path from the entry point to the object
+        method      -- method name
+        arguments   -- list of arguments entry points
+        """
+        return self.get_field(
+            self.protocol.invokeMethodByName(
+                entry_point, path, method, arguments),
+            [])
 
     def push(self, entry_point, path):
         """
@@ -122,6 +262,7 @@ class Service(object):
         Returns:
         the new entry point for the object
         """
+        return self.protocol.pushObject(entry_point, path)
 
     def to_object(self, var):
         """
@@ -133,3 +274,9 @@ class Service(object):
         Returns:
         a mapped class instance for remote usage
         """
+        if type(var) is str:
+            return self.get_field(self.protocol.pushString(var), [])
+        elif type(var) is int:
+            return self.get_field(self.protocol.pushInt(var), [])
+        elif type(var) is bool:
+            return self.get_field(self.protocol.pushBool(var), [])

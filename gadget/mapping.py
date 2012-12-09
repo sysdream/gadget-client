@@ -257,6 +257,26 @@ class Object(object):
         return self._entry_point
 
 
+def instanceof(classname, instance = None):
+    """
+    Check if a remote object is an instance of the given class
+
+    This function may be used without an instance for partial
+    application.
+
+    Keyword arguments:
+    instance  -- the remote object
+    classname -- the given class name
+    """
+    # if partial execution is requested
+    if instance is None:
+        def partial(instance):
+            return classname in instance._types
+        return partial
+    else:
+        return classname in instance._types
+
+
 class Class(object):
     """
     Class representation

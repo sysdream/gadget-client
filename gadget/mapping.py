@@ -192,7 +192,7 @@ class Object(object):
             return method
         raise AttributeError("Unknown attribute %s" % name)
 
-    def _refresh(self, name):
+    def _refresh(self):
         """
         Refresh the current field
 
@@ -346,7 +346,7 @@ class Method(object):
             entry_point = self._service.invoke(
                 self._entry_point, self._path, self._method, arguments)
         # return the result wrapped in an Object instance
-        return self._service.get_field(entry_point, [])
+        return entry_point
 
     def __repr__(self):
         """

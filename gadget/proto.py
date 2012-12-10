@@ -146,6 +146,9 @@ class Service(object):
         # refresh the entry point cache if necessary
         if self.entry_points is None:
             self.refresh_entry_points()
+        # refresh entry points
+        for entry_point in self.entry_points:
+            entry_point._refresh()
         return self.entry_points
 
     def refresh_entry_points(self):

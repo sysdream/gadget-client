@@ -161,6 +161,7 @@ class Object(object):
         self._path = path
         self._field_cache = None
         self._method_cache = None
+        self._refresh()
 
     def __repr__(self):
         """
@@ -275,26 +276,6 @@ def instanceof(classname, instance = None):
         return partial
     else:
         return classname in instance._types
-
-
-class Class(object):
-    """
-    Class representation
-
-    Simply holds a classname and provides abstraction for instanciation
-    or class browsing. Class browsing is only available for static attributes
-    and inner classes.
-    """
-
-    def __init__(self, classname):
-        """
-        Initialize the object
-        """
-        self._classname = classname
-        # anonymous class object that is used to proxify requests to
-        # static attributes and subclasses, no method proxification is allowed
-        # because invocation would not have much sense
-        self._object = None
 
 
 class Method(object):

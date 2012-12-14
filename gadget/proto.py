@@ -199,6 +199,22 @@ class Service(object):
             return None
         return Registry.resolve(types)(self, types, entry_point, path)
 
+    def get_class(self, classname):
+        """
+        Get a specific class object from class name
+
+        Keyword arguments:
+        classname -- the class name
+
+        Returns:
+        a mapped class instance for the class
+        """
+        clazz = self.protocol.getClass(classname)
+        types = self.protocol.getTypes(clazz, [])
+        if len(types) == 0:
+            return None
+        return Registry.resolve(types)(self, types, clazz, [])
+
     def get_value(self, entry_point, path):
         """
         Get the remote value of a specific field
@@ -235,6 +251,20 @@ class Service(object):
             result[name].append(
                 (modifiers, Method(self, entry_point, path, index, signature)))
         return result
+
+    def new_instance(self, entry_point, path, args):
+        """
+        Perform a class instanciation
+
+        Keyword arguments:
+        entry_point -- the object entry point
+        path        -- path from the entry point to the object
+        args        -- constructor args
+        """
+        return self.get_field(
+            self.protocol.newInstance(
+                entry_point, path, args),
+            [])
 
     def virtual(self, entry_point, path, method, arguments):
         """

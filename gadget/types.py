@@ -10,6 +10,30 @@ deployment and usage.
 from gadget.mapping import maptype, Object
 
 
+@maptype('java.lang.Class')
+class Class(Object):
+    """
+    Remote class object
+    """
+
+    def new(self, *args):
+        """
+        Create a new instance of this class
+
+        Arguments passed to this method are automatically forwarded to the
+        constructor.
+        """
+        # list of actual sent arguments
+        objects = [arg if isinstance(arg, Object)
+            else self._service.to_object(arg)
+            for arg in args]
+        arguments = [arg._getentrypoint() for arg in objects]
+        return self._service.new_instance(
+            self._entry_point,
+            self._path,
+            arguments)
+
+
 @maptype('java.lang.Integer')
 class Integer(Object):
     """
@@ -50,5 +74,5 @@ class Iterable(Object):
     """
     Remote iterable object
 
-    Provides conenient Python-like list access and enumeration.
+    Provides convenient Python-like list access and enumeration.
     """

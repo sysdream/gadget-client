@@ -295,7 +295,7 @@ class Service(object):
         Returns:
         the new entry point for the object
         """
-        return self.protocol.pushObject(entry_point, path)
+        return self.protocol.push(entry_point, path)
 
     def to_object(self, var):
         """

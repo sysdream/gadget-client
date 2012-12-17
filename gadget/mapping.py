@@ -168,7 +168,7 @@ class Object(object):
         Pretty print
         """
         return "<%s object at %s.%s>" % (
-            self._types[0], self.entry_point, str(self._path))
+            self._types[0], self._entry_point, str(self._path))
 
     def __cmp__(self, other):
         """
@@ -187,7 +187,38 @@ class Object(object):
 
         List inner fields and methods with full signature as a dictionary.
         """
-        pass #TODO
+        return self._getfields().keys() + self._getmethods().keys()
+
+    def __setattr__(self, name, value):
+        """
+        Set an attribute of the current object
+
+        Attributes must be fields. Value must be an entrypoint.
+        If not, the value is automatically converted to an entrypoint.
+        """
+        if name[0] == '_':
+            object.__setattr__(self, name, value)
+        else:
+            # is the attribute a known field ?
+            field = self._getfield(name)
+            if field is not None:
+                if isinstance(value, Object):
+                    self._service.set_value(
+                        field._entry_point,
+                        field._path,
+                        value._getentrypoint()
+                    )
+                else:
+                    objval = self._service.to_object(value)
+                    if objval is None:
+                        objval = Registry.resolve(['null'])()
+                    self._service.set_value(
+                        field._entry_point,
+                        field._path,
+                        objval._getentrypoint()
+                    )
+                field._refresh()
+
 
     def __getattr__(self, name):
         """
@@ -221,6 +252,18 @@ class Object(object):
         for instance.
         """
 
+
+    def _getfields(self):
+        """
+        Retrieve the list of fields of the remote object.
+        """
+        # if the field list needs to be refreshed
+        if self._field_cache is None:
+            self._field_cache = self._service.get_fields(
+                self._entry_point, self._path)
+        return self._field_cache
+
+
     def _getfield(self, name):
         """
         Access a field of the current object given its name
@@ -231,21 +274,28 @@ class Object(object):
         * the list of fields is stored as keys (the value is None)
         * the field Object is generated when needed
         """
-        # if the field list needs to be refreshed
-        if self._field_cache == None:
-            self._field_cache = self._service.get_fields(
-                self._entry_point, self._path)
         # if the attribute is a field
-        if name in self._field_cache:
+        if name in self._getfields():
             modifiers, type_, field = self._field_cache[name]
             # if the specific field needs to be created
             if type(field) is int:
                 field = self._service.get_field(
                     self._entry_point, self._path + [field])
-                self._field_cache[name] = (modifiers, field)
+                self._field_cache[name] = (modifiers, type_, field)
             # otherwise just refresh it
             field._refresh()
             return field
+
+    def _getmethods(self):
+        """
+        Retrieve the remote object's methods
+        """
+        # if the method list needs to be refreshed
+        if self._method_cache is None:
+            self._method_cache = self._service.get_methods(
+                self._entry_point, self._path)
+        return self._method_cache
+
 
     def _getmethod(self, name):
         """
@@ -254,12 +304,8 @@ class Object(object):
         The method returned is a virtual method instance, ie. virtual method
         resolution will be performed at call time on the Java code side.
         """
-        # if the method list needs to be refreshed
-        if self._method_cache == None:
-            self._method_cache = self._service.get_methods(
-                self._entry_point, self._path)
         # if the attribute is a method
-        if name in self._method_cache:
+        if name in self._getmethods():
             # virtual method is simply a Method object with a string method
             # instead of integer method id
             return Method(self._service, self._entry_point, self._path, name)
@@ -338,7 +384,7 @@ class Method(object):
         objects = [arg if isinstance(arg, Object)
                    else self._service.to_object(arg)
                    for arg in args]
-        arguments = [arg._getentrypoint() for arg in objects]
+        arguments = [arg._getentrypoint() if arg is not None else None for arg in objects]
         # if the method is a virtual method
         if type(self._method is str):
             entry_point = self._service.virtual(

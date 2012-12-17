@@ -33,6 +33,26 @@ class Class(Object):
             self._path,
             arguments)
 
+@maptype('null')
+class Null(Object):
+    """
+    Remote null
+    """
+    def __init__(self, service=None, types=None, entry_point=-1, path=[]):
+        Object.__init__(self, service, types, -1 ,[])
+    
+    def __repr__(self):
+        """
+        Pretty print
+        """
+        return "<null>"
+
+    def _getfields(self):
+        return None
+
+    def _getmethods(self):
+        return None
+
 
 @maptype('java.lang.Integer')
 class Integer(Object):

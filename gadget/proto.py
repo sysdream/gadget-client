@@ -136,7 +136,7 @@ class Service(object):
         self.protocol = protocol
         self.entry_points = None
 
-    def get_entry_points(self):
+    def get_entry_points(self, force=False):
         """
         List entry points as objects
 
@@ -144,7 +144,7 @@ class Service(object):
         a list of entry point objects
         """
         # refresh the entry point cache if necessary
-        if self.entry_points is None:
+        if (self.entry_points is None) or force:
             self.refresh_entry_points()
         # refresh entry points
         for entry_point in self.entry_points:
@@ -227,6 +227,10 @@ class Service(object):
         path        -- path from the entry point to the object
         """
         return self.protocol.getValue(entry_point, path)
+
+
+    def set_value(self, entry_point, path, value):
+        return self.protocol.setValue(entry_point, path, value)
 
     def get_methods(self, entry_point, path):
         """
@@ -316,6 +320,8 @@ class Service(object):
             return self.get_field(self.protocol.pushInt(var), [])
         elif type(var) is bool:
             return self.get_field(self.protocol.pushBool(var), [])
+        elif var is None:
+            return None
 
 
 class Application(object):
@@ -339,10 +345,10 @@ class Application(object):
         self.protocol = Protocol(remote, app)
         self.service = Service(self.protocol)
 
-    def get_entry_points(self):
+    def get_entry_points(self, force=True):
         """
         List the application entry points
         """
-        return self.service.get_entry_points()
+        return self.service.get_entry_points(force=force)
 
     entry_points = property(get_entry_points)

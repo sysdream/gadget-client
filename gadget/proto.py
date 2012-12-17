@@ -175,10 +175,11 @@ class Service(object):
         result = {}
         for index, field in enumerate(fields):
             name, signature = field.split(':')
+            split = signature.split(' ')
             # remove the main type from the modifiers
-            modifiers = signature.split(' ')[:-1]
+            type_, modifiers = split[-1], split[:-1]
             # populate the result
-            result[name] = (modifiers, index)
+            result[name] = (modifiers, type_, index)
         return result
 
     def get_field(self, entry_point, path):
@@ -243,13 +244,15 @@ class Service(object):
         result = {}
         for index, method in enumerate(methods):
             name, signature = method.split(':')
+            split = signature.split(' ')
             # remote the return type and arguments from the modifiers
-            modifiers = signature.split(' ')[:-1]
+            modifiers, type_ = split[:-1], split[-1]
             # populate the result
             if not name in result:
                 result[name] = []
             result[name].append(
-                (modifiers, Method(self, entry_point, path, index, signature)))
+                (modifiers, type_,
+                 Method(self, entry_point, path, index, signature)))
         return result
 
     def new_instance(self, entry_point, path, args):

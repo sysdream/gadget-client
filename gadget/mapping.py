@@ -167,7 +167,27 @@ class Object(object):
         """
         Pretty print
         """
-        return "<%s object>" % self._types[0]
+        return "<%s object at %s.%s>" % (
+            self._types[0], self.entry_point, str(self._path))
+
+    def __cmp__(self, other):
+        """
+        Object comparison
+
+        The default check verifies that both entry point and path are
+        equal. The check is therefore not fully accurate and should not serve
+        as criteria for decisions.
+        """
+        return (self._entry_point == other._entry_point
+                and self._path == other._path)
+
+    def __dir__(self):
+        """
+        Fields and methods listing
+
+        List inner fields and methods with full signature as a dictionary.
+        """
+        pass #TODO
 
     def __getattr__(self, name):
         """
@@ -217,7 +237,7 @@ class Object(object):
                 self._entry_point, self._path)
         # if the attribute is a field
         if name in self._field_cache:
-            modifiers, field = self._field_cache[name]
+            modifiers, type_, field = self._field_cache[name]
             # if the specific field needs to be created
             if type(field) is int:
                 field = self._service.get_field(

@@ -16,7 +16,7 @@ class Class(Object):
     Remote class object
     """
 
-    def new(self, *args):
+    def __call__(self, *args):
         """
         Create a new instance of this class
 
@@ -32,6 +32,7 @@ class Class(Object):
             self._entry_point,
             self._path,
             arguments)
+
 
 @maptype('null')
 class Null(Object):
@@ -60,6 +61,17 @@ class Integer(Object):
     Remote integer object
     """
 
+    def __repr__(self):
+        """
+        Pretty print
+        """
+        return "%d" % self._value
+
+    def _refresh(self):
+        """
+        Grab the Integer value
+        """
+        self._value = self._service.get_value(self._entry_point, self._path)
 
 @maptype('java.lang.String')
 class String(Object):
@@ -88,6 +100,27 @@ class Map(Object):
     Provides convenient Python-like dictionary access.
     """
 
+    def __len__(self):
+        """
+        Return the size of the map
+        """
+        return self.size()
+
+    def __getitem__(self, key):
+        """
+        Get a remote item contained in the map
+        """
+        if self.containsKey(key):
+            return self.get(key)
+        else:
+            raise IndexError()
+
+    def __setitem__(self, key, value):
+        """
+        Put a remote value inside the remote map
+        """
+        self.put(key, value)
+
 
 @maptype('')
 class Iterable(Object):
@@ -96,3 +129,14 @@ class Iterable(Object):
 
     Provides convenient Python-like list access and enumeration.
     """
+
+
+@maptype('android.app.Activity')
+class Activity(Object):
+    """
+    Remote Android activity
+    """
+
+    def refresh(self):
+        self.getWindow().getDecorView().postInvalidate()
+

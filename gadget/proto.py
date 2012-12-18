@@ -23,8 +23,7 @@ import socket
 import json
 import struct
 
-from mapping import Registry, Method
-
+from mapping import Registry, Method, instanceof
 
 class Protocol(object):
     """
@@ -135,6 +134,7 @@ class Service(object):
         """
         self.protocol = protocol
         self.entry_points = None
+
 
     def get_entry_points(self, force=False):
         """
@@ -324,6 +324,21 @@ class Service(object):
             return None
 
 
+class AppResources(object):
+    """
+    Remote application resources
+    """
+
+    def __init__(self, app, package):
+        """
+        Emulates Android's R.id, R.layout and R.string static classes
+        """
+        print app.get_class('%s.R$id' % package)
+        self.id = app.get_class('%s.R$id' % package).new()
+        self.layout = app.get_class('%s.R$layout' % package).new()
+        self.string = app.get_class('%s.R$string' % package).new()
+
+
 class Application(object):
     """
     Top abstraction level class for remote application access
@@ -342,8 +357,11 @@ class Application(object):
         """
         assert app in list_applications(remote), \
             RuntimeError("Cannot find the application")
+        self.app = app
         self.protocol = Protocol(remote, app)
         self.service = Service(self.protocol)
+        self.context = self.find('android.content.Context')[0]
+        self._R = AppResources(self, self.app)
 
     def get_entry_points(self, force=True):
         """
@@ -351,4 +369,36 @@ class Application(object):
         """
         return self.service.get_entry_points(force=force)
 
+
+    def find(self, classname):
+        """
+        Find entry points with a given class name
+        """
+        return filter(instanceof(classname), self.entry_points)
+
+
+    def get_class(self, classname):
+        """
+        Retrieve a Class object corresponding to a remote class
+
+        Keyword arguments:
+        classname   -- the class name (string)
+        """
+        return self.service.get_class(classname)
+
+    def get_resources(self):
+        """
+        Access the remote application resources
+        """
+        return self._R
+
+    def startActivity(self, activity_class):
+        """
+        Launch a remote activity
+        """
+        intent = self.get_class('android.content.Intent').new(self.context, self.get_class(activity_class))
+        intent.addFlags(intent.FLAG_ACTIVITY_NEW_TASK)
+        self.context.startActivity(intent)
+
     entry_points = property(get_entry_points)
+    R = property(get_resources)

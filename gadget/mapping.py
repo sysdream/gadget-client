@@ -50,6 +50,18 @@ Applying the resolution rules results in:
 * An instance of OtherImplementation is mapped to ThingObject
 """
 
+class MultipleDefinitionsError(Exception):
+    """
+    Multiple definitions of a single name found
+
+    This exception is thrown by Object's lazy property and method access
+    emulation when at least a method and a property match a single name.
+    """
+
+    def __init__(self):
+        Exception.__init__(self)
+
+
 class Registry(object):
     """
     Class mapping registry
@@ -143,6 +155,7 @@ class Object(object):
     may be public, protected, private, static, etc. they are stored as strings)
     """
 
+
     def __init__(self, service, types, entry_point, path=[]):
         """
         Initialize the object
@@ -161,6 +174,12 @@ class Object(object):
         self._path = path
         self._field_cache = None
         self._method_cache = None
+        self._methods = type('', (object,), {'__getattr__': self._getmethod})()
+        # self._methods alias (short form)
+        self._M = self._methods
+        self._properties = type('', (object,), {'__getattr__': self._getfield})()
+        # self._properties alias (short form)
+        self._P = self._properties
         self._refresh()
 
     def __repr__(self):
@@ -236,12 +255,17 @@ class Object(object):
         resolution will be performed on the Java side whenever the method
         object is called.
         """
-        field = self._getfield(name)
-        if field is not None:
-            return field
-        method = self._getmethod(name)
-        if method is not None:
-            return method
+        # check if at least a field AND a method both match
+        if (self._getfield(name) is not None) and (self._getmethod(name) is not None):
+            raise MultipleDefinitionsError()
+        else:
+            field = self._getfield(name)
+            if field is not None:
+                return field
+            method = self._getmethod(name)
+            if method is not None:
+                return method
+        # Nothing found, raise error
         raise AttributeError("Unknown attribute %s" % name)
 
     def _refresh(self):

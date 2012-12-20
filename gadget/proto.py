@@ -23,6 +23,7 @@ import socket
 import json
 import struct
 
+from base64 import b64encode
 from mapping import Registry, Method, instanceof
 
 class Protocol(object):
@@ -67,7 +68,10 @@ class Protocol(object):
         # send the request
         request = json.dumps([app, name] + list(arguments))
         message = struct.pack('>I', len(request)) + request
-        socket.send(message)
+
+        while len(message) > 0:
+            message = message[socket.send(message):]
+
         # wait for the answer
         length = socket.recv(4)
         assert len(length) == 4, IOError("Connection error while receiving")
@@ -304,6 +308,20 @@ class Service(object):
         """
         return self.protocol.push(entry_point, path)
 
+    def load_macro(self, classname, dex):
+        """
+        Load a dex file into the remote app
+
+        Keyword arguments:
+        dex -- the dex content to load
+
+        Returns:
+        the new entry point for the loaded object (macro)
+        """
+        return self.get_field(
+                self.protocol.loadMacro(classname, b64encode(dex)),
+                [])
+
     def to_object(self, var):
         """
         Take a Python typed object and push it as a remote object
@@ -333,10 +351,9 @@ class AppResources(object):
         """
         Emulates Android's R.id, R.layout and R.string static classes
         """
-        print app.get_class('%s.R$id' % package)
-        self.id = app.get_class('%s.R$id' % package).new()
-        self.layout = app.get_class('%s.R$layout' % package).new()
-        self.string = app.get_class('%s.R$string' % package).new()
+        self.id = app.get_class('%s.R$id' % package)()
+        self.layout = app.get_class('%s.R$layout' % package)()
+        self.string = app.get_class('%s.R$string' % package)()
 
 
 class Application(object):

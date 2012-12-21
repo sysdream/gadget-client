@@ -6,4 +6,5 @@ __all__ = [
     'Application',
     'instanceof',
     'Registry',
+    'Null',
 ]

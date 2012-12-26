@@ -413,7 +413,7 @@ class Application(object):
         """
         Launch a remote activity
         """
-        intent = self.get_class('android.content.Intent').new(self.context, self.get_class(activity_class))
+        intent = self.get_class('android.content.Intent')(self.context, self.get_class(activity_class))
         intent.addFlags(intent.FLAG_ACTIVITY_NEW_TASK)
         self.context.startActivity(intent)
 

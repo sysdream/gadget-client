@@ -1,11 +1,33 @@
 #!/usr/bin/env python
+"""
+Gadget interactive shell
+
+Provices interactive access to Gadget and Fino primitives
+for remote inspection of Android applications.
+The shell has autocompletion abilities for easy browsing
+inside the remote memory.
+"""
 
 import sys
 import os
 import gadget
 import traceback
-import rlcompleter
 import readline
+
+def completer(base, state):
+    """
+    Autocompletion utility
+    """
+    if "." in base:
+        split = base.rfind(".")
+        options = map(lambda x: base[:split+1] + x, filter(
+            lambda x: x.startswith(base[split+1:]) and not x.startswith("_"),
+            dir(eval(base[:split]))))
+    else:
+        options = filter(
+            lambda x: x.startswith(base),
+            globals().keys())
+    return options[state] if state < len(options) else None
 
 # check for correct usage
 if len(sys.argv) < 3:
@@ -31,14 +53,18 @@ except Exception as e:
     traceback.print_exc()
     sys.exit(1)
 
+# set some variables
+R = app.R
+
+# launch the shell
 os.system('clear')
-print """
+print """\033[32m
    ___________                     ______
   |            | |..          |  .~      ~.
   |______      | |  ``..      | |          |
   |            | |      ``..  | |          |
   |            | |          ``|  `.______.'
-
+  \033[0m
   Fino  Copyright (C) 2012 Sysdream
   This program comes with ABSOLUTELY NO WARRANTY.
   This is free software, and you are welcome to redistribute it
@@ -47,8 +73,9 @@ print """
   Built-ins:
   app    -- the current application
   gadget -- the main gadget package
+  R      -- the standard resource namespace
 
   """
-sys.ps1 = "\033[31m>>> \033[0m"
 os.environ['PYTHONINSPECT'] = 'True'
 readline.parse_and_bind("tab: complete")
+readline.set_completer(completer)

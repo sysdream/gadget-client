@@ -58,7 +58,7 @@ R = app.R
 
 # launch the shell
 os.system('clear')
-print """\033[32m
+print """\033[29m
    ___________                     ______
   |            | |..          |  .~      ~.
   |______      | |  ``..      | |          |

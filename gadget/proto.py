@@ -25,6 +25,7 @@ import struct
 
 from base64 import b64encode
 from mapping import Registry, Method, instanceof
+from types import Null
 
 class Protocol(object):
     """
@@ -351,9 +352,12 @@ class AppResources(object):
         """
         Emulates Android's R.id, R.layout and R.string static classes
         """
-        self.id = app.get_class('%s.R$id' % package)()
-        self.layout = app.get_class('%s.R$layout' % package)()
-        self.string = app.get_class('%s.R$string' % package)()
+        id_class = app.get_class('%s.R$id' % package)
+        layout_class = app.get_class('%s.R$layout' % package)
+        string_class = app.get_class('%s.R$string' % package)
+        self.id = Null() if id_class is None else id_class()
+        self.layout = Null() if layout_class is None else layout_class()
+        self.string = Null() if string_class is None else string_class()
 
 
 class Application(object):

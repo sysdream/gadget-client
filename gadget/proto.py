@@ -398,6 +398,18 @@ class Application(object):
         return filter(instanceof(classname), self.entry_points)
 
 
+    def load(self, classname, apkfile):
+        """
+        Dynamically load any APK into the remote application
+
+        Keyword args:
+        classname   -- the classname to retrieve
+        apkfile     -- the apk file to load inside the remote app
+        """
+        content = open(apkfile,'rb').read()
+        return self.service.load_macro(classname, content)
+            
+
     def get_class(self, classname):
         """
         Retrieve a Class object corresponding to a remote class

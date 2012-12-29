@@ -58,7 +58,8 @@ R = app.R
 
 # launch the shell
 os.system('clear')
-print """\033[29m
+print """
+  \033[29m
    ___________                     ______
   |            | |..          |  .~      ~.
   |______      | |  ``..      | |          |
@@ -77,5 +78,5 @@ print """\033[29m
 
   """
 os.environ['PYTHONINSPECT'] = 'True'
-readline.parse_and_bind("tab: complete")
+readline.parse_and_bind("\"\C-tab\": complete")
 readline.set_completer(completer)

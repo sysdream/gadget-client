@@ -1,4 +1,6 @@
 #!/bin/sh
 
-javac -classpath /opt/android-sdk-linux/platforms/android-16/android.jar DeepInspect.java
-/opt/android-sdk-linux/platform-tools/dx --dex --output=DeepInspect.apk DeepInspect.class
+SDK=/opt/android-sdk-linux
+
+javac -classpath $SDK/platforms/android-16/android.jar DeepInspect.java
+$SDK/platform-tools/dx --dex --output=DeepInspect.apk DeepInspect.class

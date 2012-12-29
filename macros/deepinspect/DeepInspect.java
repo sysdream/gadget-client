@@ -19,6 +19,7 @@ class DeepInspect {
                     f.setAccessible(true);
                     if (f.get(rootObj) != null)
                     {
+                        Log.d("DEEPINSPECT",f.get(rootObj).getClass().getName());
                         if (f.get(rootObj).getClass().getName().equals(classname))
                             result.add(f.get(rootObj));
                         result.addAll(this.findObjects(f.get(rootObj), classname, depth-1));

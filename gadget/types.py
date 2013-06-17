@@ -41,7 +41,7 @@ class Null(Object):
     """
     def __init__(self, service=None, types=None, entry_point=-1, path=[]):
         Object.__init__(self, service, types, -1 ,[])
-    
+
     def __repr__(self):
         """
         Pretty print
@@ -60,7 +60,7 @@ class Integer(Object):
     """
     Remote integer object
     """
-    
+
     def __repr__(self):
         """
         Pretty print
@@ -107,6 +107,12 @@ class String(Object):
     """
     Remote string object
     """
+
+    def __str__(self):
+        """
+        String representation
+        """
+        return self._value
 
     def __repr__(self):
         """
@@ -171,7 +177,7 @@ class Collection(Object):
 
         def __iter__(self):
             return self
-        
+
         def next(self):
             if self._iter.hasNext():
                 return self._iter.next()
@@ -201,4 +207,3 @@ class Activity(Object):
         Calls the underlying window refresh routine
         """
         self.getWindow().getDecorView().postInvalidate()
-

@@ -376,8 +376,8 @@ class Application(object):
         remote -- remote address and port
         app    -- remote application name
         """
-        assert app in list_applications(remote), \
-            RuntimeError("Cannot find the application")
+        #assert app in list_applications(remote), \
+        #    RuntimeError("Cannot find the application")
         self.app = app
         self.protocol = Protocol(remote, app)
         self.service = Service(self.protocol)
@@ -390,13 +390,11 @@ class Application(object):
         """
         return self.service.get_entry_points(force=force)
 
-
     def find(self, classname):
         """
         Find entry points with a given class name
         """
         return filter(instanceof(classname), self.entry_points)
-
 
     def load(self, classname, apkfile):
         """
@@ -408,7 +406,6 @@ class Application(object):
         """
         content = open(apkfile,'rb').read()
         return self.service.load_macro(classname, content)
-            
 
     def get_class(self, classname):
         """
@@ -432,6 +429,13 @@ class Application(object):
         intent = self.get_class('android.content.Intent')(self.context, self.get_class(activity_class))
         intent.addFlags(intent.FLAG_ACTIVITY_NEW_TASK)
         self.context.startActivity(intent)
+
+    def listActivities(self):
+        """
+        List running activities
+        """
+        return [activity_record.activity for activity_record in self.context.mBase.mMainThread.mActivities._M.values()]
+
 
     entry_points = property(get_entry_points)
     R = property(get_resources)

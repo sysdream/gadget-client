@@ -6,7 +6,7 @@ class Replay {
 
     private Object m_root;
 
-    public class ReplaySlot {
+    public static class ReplaySlot {
         private Object m_obj;
         private Field m_field;
         private Object m_value;
@@ -15,7 +15,7 @@ class Replay {
             m_obj = obj;
             m_field = f;
             m_field.setAccessible(true);
-            m_value = getValue();
+            m_value = getSlotValue();
         }
 
         public Object getObject() {
@@ -25,21 +25,26 @@ class Replay {
         public Field getField() {
             return m_field;
         }
-
         public boolean wasModified() {
-            return (this.getValue() != m_value);
+            return (this.getSlotValue() != m_value);
         }
-
         public boolean equals(Object obj) {
-            return (obj.equals(this.getValue()));
+            return (obj.equals(this.getSlotValue()));
         }
-
-        public Object getValue() {
+        public Object getSlotValue() {
             try {
                 return m_field.get(m_obj);
             }
             catch( IllegalAccessException exc) {
                 return null;
+            }
+        }
+        public void setSlotValue(Object value) {
+            try
+            {
+                m_field.set(m_obj, value);
+            }
+            catch(IllegalAccessException exc) {
             }
         }
     };
@@ -64,7 +69,7 @@ class Replay {
             return;
 
         /* Otherwise, perform a recursive search */
-        findObjects(m_root, value.getClass().getName(), value, depth);
+        findObjects(m_root, "java.lang.Integer", value, depth);
     }
 
 
@@ -107,7 +112,7 @@ class Replay {
         return;
     }
 
-    public void filterSlots(Object rootObj, Object value, int depth) {
+    public void filterSlots(Object value, int depth) {
         if (depth == 0)
             return;
         for (Replay.ReplaySlot rs : m_slots) {

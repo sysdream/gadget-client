@@ -218,26 +218,24 @@ class Object(object):
         if name[0] == '_':
             object.__setattr__(self, name, value)
         else:
-            # is the attribute a known field ?
             field = self._getfield(name)
-            if field is not None:
-                if isinstance(value, Object):
-                    self._service.set_value(
-                        field._entry_point,
-                        field._path,
-                        value._getentrypoint()
-                    )
-                else:
-                    objval = self._service.to_object(value)
-                    if objval is None:
-                        objval = Registry.resolve(['null'])()
-                    self._service.set_value(
-                        field._entry_point,
-                        field._path,
-                        objval._getentrypoint()
-                    )
+            fields = self._service.get_fields(
+                self._entry_point, self._path)
+            if name in fields and field:
+                if not isinstance(value, Object):
+                    value = self._service.to_object(value)
+                    if value is None:
+                        value = Registry.resolve(['null'])()
+                _, _, index = fields[name]
+                self._service.set_value(
+                    self._entry_point,
+                    self._path + [index],
+                    value._getentrypoint()
+                )
                 field._refresh()
 
+                # Refresh the field cache
+                self._field_cache[name] = fields[name]
 
     def __getattr__(self, name):
         """

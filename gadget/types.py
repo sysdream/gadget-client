@@ -41,7 +41,7 @@ class Null(Object):
     """
     def __init__(self, service=None, types=None, entry_point=-1, path=[]):
         Object.__init__(self, service, types, -1 ,[])
-    
+
     def __repr__(self):
         """
         Pretty print
@@ -60,12 +60,23 @@ class Integer(Object):
     """
     Remote integer object
     """
-    
+
     def __repr__(self):
         """
         Pretty print
         """
         return "%d" % self._value
+
+    def __cmp__(self, other):
+        """
+        Compare to another object
+        """
+        if type(other) is int:
+            return self._value == other
+        elif type(other) is Integer:
+            return self._value == other._value
+        else:
+            return super(Integer, self).__cmp__(other)
 
     def __get__(self):
         """
@@ -112,7 +123,18 @@ class String(Object):
         """
         Pretty print
         """
-        return "'%s'" % self._value
+        return "%s" % self._value
+
+    def __cmp__(self, other):
+        """
+        Compare to another object
+        """
+        if type(other) is str:
+            return self._value == other
+        elif type(other) is String:
+            return self._value == other._value
+        else:
+            return super(String, self).__cmp__(other)
 
     def _refresh(self):
         """
@@ -171,7 +193,7 @@ class Collection(Object):
 
         def __iter__(self):
             return self
-        
+
         def next(self):
             if self._iter.hasNext():
                 return self._iter.next()

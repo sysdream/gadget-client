@@ -1,124 +1,150 @@
-import android.util.Log;
-import java.lang.reflect.*;
+import java.lang.reflect.Field;
+import java.util.Map.Entry;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 
+/**
+ * Android Action-replay implementation.
+ *
+ * Will look for items in the given object hierarchy that match the given
+ * search value. Provides a filter function to narrow the search and a
+ * modifier to set the final values.
+ */
 class Replay {
 
-    private Object m_root;
+    /**
+     * Object hierarchy root.
+     */
+    private Object mHaystack;
 
-    public static class ReplaySlot {
-        private Object m_obj;
-        private Field m_field;
-        private Object m_value;
+    /**
+     * Fields that match the values.
+     */
+    private ArrayList<Field> mResults;
 
-        ReplaySlot(Object obj, Field f) {
-            m_obj = obj;
-            m_field = f;
-            m_field.setAccessible(true);
-            m_value = getSlotValue();
-        }
+    /**
+     * Fields that contain further results.
+     */
+    private HashMap<Field, Replay> mChildren;
 
-        public Object getObject() {
-            return m_obj;
-        }
-
-        public Field getField() {
-            return m_field;
-        }
-        public boolean wasModified() {
-            return (this.getSlotValue() != m_value);
-        }
-        public boolean equals(Object obj) {
-            return (obj.equals(this.getSlotValue()));
-        }
-        public Object getSlotValue() {
-            try {
-                return m_field.get(m_obj);
-            }
-            catch( IllegalAccessException exc) {
-                return null;
-            }
-        }
-        public void setSlotValue(Object value) {
-            try
-            {
-                m_field.set(m_obj, value);
-            }
-            catch(IllegalAccessException exc) {
-            }
-        }
-    };
-
-    private ArrayList<Replay.ReplaySlot> m_slots;
-
-    public Replay(Object obj) {
-        /* Initialize slots */
-        m_slots = new ArrayList<Replay.ReplaySlot>();
-        m_root = obj;
-        clear();
+    /**
+     * Constructor
+     *
+     * @param haystack the search root
+     * @param needle the object to search for
+     * @param depth depth to deploy the object hierarchy to
+     */
+    public Replay(Object haystack, Object needle, int depth) {
+	mResults = new ArrayList<Field>();
+	mChildren = new HashMap<Field, Replay>();
+	mHaystack = haystack;
+	// Stop confition
+	if(depth > 0) {
+	    Class<?> clazz = mHaystack.getClass();
+	    while (clazz != null) {
+		for (Field field : clazz.getDeclaredFields()) {
+		    Object value = getField(field, mHaystack);
+		    if (value != null) {
+			if(compareField(field, mHaystack, needle)) {
+			    mResults.add(field);
+			}
+			else {
+			    Replay child = new Replay(value, needle, depth - 1);
+			    // Do not add empty children.
+			    if(!child.mResults.isEmpty() ||
+			       !child.mChildren.isEmpty()) {
+				mChildren.put(field, child);
+			    }
+			}
+		    }
+		}
+		clazz = clazz.getSuperclass();
+	    }
+	}
     }
 
-    public void clear() {
-        m_slots.clear();
+    /**
+     * Update the filter to narrow the search.
+     *
+     * @param needle the new filter value.
+     */
+    public void applyFilter(Object needle) {
+	Iterator<Field> iter1 = mResults.iterator();
+	while(iter1.hasNext()) {
+	    if (!compareField(iter1.next(), mHaystack, needle)) {
+		iter1.remove();
+	    }
+	}
+	Iterator<Entry<Field, Replay>> iter2 = mChildren.entrySet().iterator();
+	while(iter2.hasNext()) {
+	    Entry<Field, Replay> child = iter2.next();
+	    child.getValue().applyFilter(needle);
+	    if(child.getValue().mResults.isEmpty() &&
+	       child.getValue().mChildren.isEmpty()) {
+		iter2.remove();
+	    }
+	}
     }
 
-
-    public void firstSearch(Object value, int depth) {
-        /* Max depth reached ? */
-        if (depth == 0)
-            return;
-
-        /* Otherwise, perform a recursive search */
-        findObjects(m_root, "java.lang.Integer", value, depth);
+    public ArrayList<ArrayList<Field>> getResults() {
+	ArrayList<ArrayList<Field>> result = new ArrayList<ArrayList<Field>>();
+	for(Field field : mResults) {
+	    ArrayList<Field> item = new ArrayList<Field>();
+	    item.add(field);
+	    result.add(item);
+	}
+	for(Entry<Field, Replay> child : mChildren.entrySet()) {
+	    ArrayList<Field> base = new ArrayList<Field>();
+	    base.add(child.getKey());
+	    for(ArrayList<Field> tail : child.getValue().getResults()) {
+		ArrayList<Field> concat = new ArrayList<Field>(base);
+		concat.addAll(tail);
+		result.add(concat);
+	    }
+	}
+	return result;
     }
 
-
-    public void UpdateOrAdd(Object obj, Field f) {
-        for (Replay.ReplaySlot rs : m_slots) {
-            if ((rs.getObject() == obj) && (f.getName().equals(rs.getField().getName()))) {
-                return;
-            }
-        }
-        m_slots.add(new Replay.ReplaySlot(obj, f));
+    /**
+     * Set all the items to the given value.
+     *
+     * @param value the given value
+     */
+    public void set(Object value) {
+	for(Field field : mResults) {
+	    setField(field, mHaystack, value);
+	}
+	for(Entry<Field, Replay> child : mChildren.entrySet()) {
+	    child.getValue().set(value);
+	}
     }
 
-    public ArrayList<Replay.ReplaySlot> getSlots() {
-        return m_slots;
+    private Object getField(Field field, Object obj) {
+	try {
+	    field.setAccessible(true);
+	    return field.get(obj);
+	} catch(IllegalArgumentException e) {
+	    return null;
+	} catch(IllegalAccessException e) {
+	    return null;
+	}
     }
 
-    public void findObjects(Object rootObj, String classname, Object value, int depth) {
-        if (depth == 0)
-            return;
-
-        Class<?> c = rootObj.getClass();
-        do {
-            for (Field f : c.getDeclaredFields()) {
-                try {
-                    f.setAccessible(true);
-                    if (f.get(rootObj) != null)
-                    {
-                        if (f.get(rootObj).getClass().getName().equals(classname) && (f.get(rootObj).equals(value))) {
-                            UpdateOrAdd(rootObj, f);
-                        }
-                    }
-                } catch(IllegalArgumentException e) {
-                    continue;
-                } catch(IllegalAccessException e2) {
-                    continue;
-                }
-            }
-            c = c.getSuperclass();
-        } while (c != null);
-        return;
+    private void setField(Field field, Object obj, Object value) {
+	try {
+	    field.setAccessible(true);
+	    field.set(obj, value);
+	} catch(IllegalArgumentException e) {
+	} catch(IllegalAccessException e) {
+	}
     }
 
-    public void filterSlots(Object value, int depth) {
-        if (depth == 0)
-            return;
-        for (Replay.ReplaySlot rs : m_slots) {
-            if (!rs.equals(value)) {
-                m_slots.remove(rs);
-            }
-        }
+    private boolean compareField(Field field, Object obj, Object value) {
+	try {
+	    return getField(field, obj).equals(value);
+	} catch(Exception e) {
+	    return false;
+	}
     }
 }

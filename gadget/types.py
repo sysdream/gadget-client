@@ -119,6 +119,12 @@ class String(Object):
     Remote string object
     """
 
+    def __str__(self):
+        """
+        String representation
+        """
+        return self._value
+
     def __repr__(self):
         """
         Pretty print
@@ -223,4 +229,3 @@ class Activity(Object):
         Calls the underlying window refresh routine
         """
         self.getWindow().getDecorView().postInvalidate()
-
